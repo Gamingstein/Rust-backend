@@ -1,81 +1,28 @@
-mod config;
-mod db;
-mod dtos;
-mod error;
-mod handler;
-mod mail;
-mod middleware;
-mod models;
-mod routes;
-mod utils;
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 
-use std::sync::Arc;
-
-use axum::http::{
-    HeaderValue, Method,
-    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-};
-use config::Config;
-use db::DBClient;
-use dotenv::dotenv;
-use routes::create_router;
-use sqlx::postgres::PgPoolOptions;
-use tower_http::cors::CorsLayer;
-use tracing_subscriber::filter::LevelFilter;
-
-#[derive(Debug, Clone)]
-pub struct AppState {
-    pub env: Config,
-    pub db_client: DBClient,
+#[get("/")]
+async fn hello() -> impl Responder {
+    HttpResponse::Ok().body("Hello world!")
 }
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::DEBUG)
-        .init();
+#[post("/echo")]
+async fn echo(req_body: String) -> impl Responder {
+    HttpResponse::Ok().body(req_body)
+}
 
-    dotenv().ok();
+async fn manual_hello() -> impl Responder {
+    HttpResponse::Ok().body("Hey there!")
+}
 
-    let config = Config::init();
-
-    let pool = match PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&config.database_url)
-        .await
-    {
-        Ok(pool) => {
-            println!("✅Connection to the database is successful!");
-            pool
-        }
-        Err(err) => {
-            println!("🔥 Failed to connect to the database: {:?}", err);
-            std::process::exit(1);
-        }
-    };
-
-    let cors = CorsLayer::new()
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
-        .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
-        .allow_credentials(true)
-        .allow_methods([Method::GET, Method::POST, Method::PUT]);
-
-    let db_client = DBClient::new(pool);
-    let app_state = AppState {
-        env: config.clone(),
-        db_client,
-    };
-
-    let app = create_router(Arc::new(app_state.clone())).layer(cors.clone());
-
-    println!(
-        "{}",
-        format!("🚀 Server is running on http://localhost:{}", config.port)
-    );
-
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", &config.port))
-        .await
-        .unwrap();
-
-    axum::serve(listener, app).await.unwrap();
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            .service(hello)
+            .service(echo)
+            .route("/hey", web::get().to(manual_hello))
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
