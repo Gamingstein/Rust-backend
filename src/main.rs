@@ -1,4 +1,4 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, post, web};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -16,6 +16,7 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    println!("Server started on http://localhost:8080");
     HttpServer::new(|| {
         App::new()
             .service(hello)
